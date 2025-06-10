@@ -21,7 +21,7 @@ def get_reference_values_by_entity(es, entity_id, schema, subject_ids=None):
         A dict describing the reference values for each item in the required entity.
     """
     entity_info = schema[entity_id]
-    df = es[entity_id].df
+    df = es[entity_id]
     # TODO: filter by time
     if subject_ids is not None:
         df = df[df['SUBJECT_ID'].isin(subject_ids)]

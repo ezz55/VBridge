@@ -86,7 +86,7 @@ export class SelectorWidget extends React.PureComponent<SelectorWidgetProps> {
             <Divider />
             {isCategoricalVariable(selectorVar) && <Group
                 options={selectorVar.extent}
-                defaultValue={extent.extent}
+                defaultValue={isCategoricalVariable(extent) ? extent.extent : undefined}
                 onChange={value => updateExtent({...selectorVar, extent: value as string[]})}
             />}
             <Divider />

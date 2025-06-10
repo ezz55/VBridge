@@ -45,7 +45,9 @@ entity_configs = {
         'identifiers': ['SUBJECT_ID', 'HADM_ID', 'ITEMID'],
         'time_index': 'CHARTTIME',
         'item_index': 'ITEMID',
-        'interesting_values': 30,
+        'interesting_values': ['220045', '223795', '223769', '223761', '223752', '223751', '224080', 
+                              '220739', '224084', '224086', '224093', '220277', '220210', '220181', 
+                              '220180', '220179', '224161', '224162', '227240', '224168'],
         'value_indexes': ['VALUENUM'],
         'alias': 'Chart Events',
     },
@@ -59,7 +61,7 @@ entity_configs = {
 
 ignore_variables = {
     'PATIENTS': ['ROW_ID', 'EXPIRE_FLAG', 'DOD', 'DOD_HOSP', 'DOD_SSN', 'SUBJECT_ID'],
-    'ADMISSIONS': ['ROW_ID', 'HADM_ID', 'SUBJECT_ID', 'LANGUAGE'],
+    'ADMISSIONS': ['ROW_ID', 'HADM_ID', 'SUBJECT_ID', 'LANGUAGE', 'HOSPITAL_EXPIRE_FLAG'],  # Exclude target variable
     'ICUSTAYS': ['ROW_ID', 'HADM_ID', 'ICUSTAY_ID', 'SUBJECT_ID'],
     'LABEVENTS': ['ROW_ID', 'HADM_ID', 'SUBJECT_ID', 'VALUEUOM', 'VALUE', 'CHARTTIME', 'FLAG'],
     'CHARTEVENTS': ['ROW_ID', 'SUBJECT_ID', 'HADM_ID', 'ICUSTAY_ID', 'VALUE', 'VALUEUOM',

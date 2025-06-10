@@ -28,8 +28,9 @@ def get_entity_description(es, schema, entity_id):
         info['value_indexes'] = table_info.get('value_indexes')
         info['alias'] = table_info.get('alias')
         info['item_dict'] = item_dict.get(entity_id, None)
-        column_names = es[entity_id].df.columns
-        df = es[entity_id].df
+        # Updated for modern featuretools API - direct dataframe access
+        df = es[entity_id]
+        column_names = df.columns
         # distinguish "categorical" and "numerical" columns
         info['types'] = ['categorical' if df[name].dtype == object
                          else 'numerical' for name in column_names]

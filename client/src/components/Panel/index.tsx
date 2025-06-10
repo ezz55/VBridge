@@ -18,6 +18,7 @@ export interface IPanelProps extends IHeaderProps {
   draggable?: boolean;
   id?: string;
   disableDragging?: boolean;
+  children?: React.ReactNode;
 }
 
 export interface IPanelState {

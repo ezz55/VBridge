@@ -12,54 +12,62 @@ with open('HISTORY.md', encoding='utf-8') as history_file:
     history = history_file.read()
 
 install_requires = [
-    'scikit-learn>=0.24.0,<1.0',
-    'featuretools>=0.23,<0.24',
-    'xgboost>=1.4.1,<1.5',
-    'shap>=0.40.0,<0.41',
+    # Core data science libraries with ARM64 support
+    'pandas>=2.0.0',  # Explicit pandas version for data manipulation
+    'numpy>=1.24.0',  # Required for pandas and sklearn
+    'scikit-learn>=1.3.0',
+    'featuretools>=1.27.0',
+    'woodwork>=0.31.0',  # Required for featuretools 1.0+ compatibility
+    'xgboost>=2.0.0',
+    'shap>=0.43.0',
 
-    # Flask
-    'flask>=1.1.0,<1.2',
-    'flask-restful>=0.3.8,<0.4.0',
-    'flask-cors>=3.0,<3.1',
-    'flasgger==0.9.5',
+    # Flask stack - updated to latest stable versions
+    'flask>=2.3.0',
+    'flask-restful>=0.3.10',
+    'flask-cors>=4.0.0',
+    'flasgger>=0.9.7.1',
+    
+    # Additional core dependencies
+    'python-dateutil>=2.8.0',  # Required for pandas date functionality
+    'pytz>=2023.3',  # Required for timezone handling
 ]
 
 setup_requires = [
-    'pytest-runner>=2.11.1',
+    'pytest-runner>=6.0.0',
 ]
 
 tests_require = [
-    'pytest>=3.4.2',
-    'pytest-cov>=2.6.0',
+    'pytest>=7.4.0',
+    'pytest-cov>=4.1.0',
 ]
 
 development_requires = [
     # general
-    'bumpversion>=0.5.3',
-    'pip>=9.0.1',
-    'watchdog>=0.8.3',
+    'bumpversion>=0.6.0',
+    'pip>=23.0.0',
+    'watchdog>=3.0.0',
 
     # docs
-    'm2r>=0.2.0,<0.3',
-    'Sphinx>=1.7.1,<3',
-    'sphinx_rtd_theme>=0.2.4,<0.5',
-    'autodocsumm>=0.1.10',
+    'm2r2>=0.3.0',  # Updated from m2r
+    'Sphinx>=7.0.0',
+    'sphinx_rtd_theme>=1.3.0',
+    'autodocsumm>=0.2.8',
 
     # style check
-    'flake8>=3.7.7',
-    'isort>=4.3.4',
+    'flake8>=6.1.0',
+    'isort>=5.12.0',
 
     # fix style issues
-    'autoflake>=1.2',
-    'autopep8>=1.4.3',
+    'autoflake>=2.2.0',
+    'autopep8>=2.0.0',
 
     # distribute on PyPI
-    'twine>=1.10.0',
-    'wheel>=0.30.0',
+    'twine>=4.0.0',
+    'wheel>=0.41.0',
 
     # Advanced testing
-    'coverage>=4.5.1',
-    'tox>=2.9.1',
+    'coverage>=7.3.0',
+    'tox>=4.0.0',
 ]
 
 setup(
@@ -71,8 +79,12 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Operating System :: MacOS :: MacOS X',
+        'Operating System :: POSIX :: Linux',
     ],
     description='Python Boilerplate contains all the boilerplate you need to create a Python '
                 'package.',
@@ -89,7 +101,7 @@ setup(
     keywords='vbridge vbridge VBridge',
     name='vbridge',
     packages=find_packages(include=['vbridge', 'vbridge.*']),
-    python_requires='>=3.7',
+    python_requires='>=3.8',  # Updated minimum Python version
     setup_requires=setup_requires,
     test_suite='tests',
     tests_require=tests_require,

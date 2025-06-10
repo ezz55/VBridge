@@ -10,7 +10,8 @@ def get_leaves(feature):
 
 def get_relevant_entity_id(feature):
     leave_nodes = get_leaves(feature)
-    entity_ids = list(set([leaf.entity_id for leaf in leave_nodes]))
+    # Updated for modern featuretools 1.0+ API - use dataframe_name instead of entity_id
+    entity_ids = list(set([leaf.dataframe_name for leaf in leave_nodes]))
     if len(entity_ids) > 1:
         raise UserWarning("The system do not support features constructed with data from "
                           "multiple entities. Will choose the first entity instead.")
@@ -19,7 +20,8 @@ def get_relevant_entity_id(feature):
 
 def get_relevant_column_id(feature, ignore_columns=None):
     leave_nodes = get_leaves(feature)
-    column_ids = list(set([leaf.variable.id for leaf in leave_nodes]))
+    # Updated for modern featuretools 1.0+ API - use column_name instead of variable.id
+    column_ids = list(set([leaf.column_name for leaf in leave_nodes]))
     if ignore_columns is not None:
         column_ids = [col for col in column_ids if col not in ignore_columns]
     if len(column_ids) > 1:

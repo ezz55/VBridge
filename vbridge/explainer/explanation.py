@@ -67,7 +67,7 @@ def feat2signal(es, feature, **kwargs):
 
 def extract_signal(es, entity_id, variable_id, filters=None,
                    time_var=None, start_time=None, end_time=None):
-    df = es[entity_id].df
+    df = es[entity_id]
     if filters is not None:
         for f in filters:
             df = df[f(df)]
@@ -152,7 +152,7 @@ class Explainer:
 
     def occlusion_explain(self, feature, direct_id, flip=False):
         # Calculate signal contributions using the occlusion algorithm
-        subject_id = self.es[self.task.target_entity].df.loc[direct_id]['SUBJECT_ID']
+        subject_id = self.es[self.task.target_entity].loc[direct_id]['SUBJECT_ID']
         filters = [lambda df: df["SUBJECT_ID"] == subject_id]
 
         entity_id = feature.base_features[0].entity_id

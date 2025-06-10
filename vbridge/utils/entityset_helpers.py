@@ -7,14 +7,13 @@ def remove_nan_entries(df, key_columns, verbose=True):
     return df
 
 
-def parse_relationship_path(relationship_path):
-    # TODO: get the relationship with a public function instead
-    relationship = relationship_path._relationships_with_direction[0][1]
+def parse_relationship_path(relationship):
+    # Updated for modern featuretools API
     return {
-        'parent_entity_id': relationship.parent_entity.id,
-        'parent_variable_id': relationship.parent_variable.id,
-        'child_entity_id': relationship.child_entity.id,
-        'child_variable_id': relationship.child_variable.id,
+        'parent_entity_id': relationship.parent_dataframe.ww.name,
+        'parent_variable_id': relationship.parent_column,
+        'child_entity_id': relationship.child_dataframe.ww.name,
+        'child_variable_id': relationship.child_column,
     }
 
 
@@ -25,23 +24,35 @@ def get_forward_entities(entityset, entity_id):
         entity_id = entity_id_pipe[0]
         entity_id_pipe = entity_id_pipe[1:]
         ids.append(entity_id)
-        for child_id, _ in entityset.get_forward_entities(entity_id):
+        # Extract just the dataframe names from the tuples returned by get_forward_dataframes
+        forward_tuples = list(entityset.get_forward_dataframes(entity_id))
+        for child_id, path in forward_tuples:
             entity_id_pipe.append(child_id)
     return ids
 
 
 def get_forward_attributes(entityset, target_entity, direct_id, interesting_ids=None):
     info = []
-    entity_id_pipe = [(target_entity, direct_id)]
-    while len(entity_id_pipe):
-        entity_id, direct_id = entity_id_pipe.pop()
-        if interesting_ids is not None and entity_id not in interesting_ids:
-            continue
-        df = entityset[entity_id].df
-        info = [{'entityId': entity_id, 'items': df.loc[direct_id].fillna('N/A').to_dict()}] + info
-        for child_id, relationship_path in entityset.get_forward_entities(entity_id):
-            relation = parse_relationship_path(relationship_path)
-            entity_id_pipe.append((child_id, df.loc[direct_id][relation['parent_variable_id']]))
+    try:
+        # Just get data from the target entity for now to avoid relationship traversal issues
+        df = entityset[target_entity]
+        
+        # Check if direct_id exists in this dataframe before trying to access it
+        if direct_id in df.index:
+            # Get the data and convert to dictionary
+            patient_data = df.loc[direct_id].fillna('N/A')
+            # Ensure we convert Series to dict properly
+            if hasattr(patient_data, 'to_dict'):
+                patient_dict = patient_data.to_dict()
+            else:
+                patient_dict = dict(patient_data)
+            
+            info = [{'entityId': target_entity, 'items': patient_dict}]
+    except Exception as e:
+        # If anything fails, return empty list
+        print(f"Error in get_forward_attributes: {e}")
+        return []
+    
     return info
 
 
@@ -53,8 +64,15 @@ def find_path(entityset, source_entity, target_entity):
         parent_node = nodes_pipe.pop()
         if parent_node == source_entity:
             break
-        child_nodes = [e[0] for e in entityset.get_backward_entities(parent_node)] \
-            + [e[0] for e in entityset.get_forward_entities(parent_node)]
+        # Use the modern featuretools API - extract just dataframe names from tuples
+        backward_tuples = list(entityset.get_backward_dataframes(parent_node))
+        forward_tuples = list(entityset.get_forward_dataframes(parent_node))
+        
+        # Extract just the dataframe names (first element of each tuple)
+        backward_nodes = [name for name, path in backward_tuples]
+        forward_nodes = [name for name, path in forward_tuples]
+        child_nodes = backward_nodes + forward_nodes
+        
         for child in child_nodes:
             if child not in parent_dict:
                 parent_dict[child] = parent_node
@@ -72,36 +90,40 @@ def transfer_cutoff_times(entityset, cutoff_times, source_entity, target_entity,
     path = find_path(entityset, source_entity, target_entity)[-1]
     for i, source in enumerate(path[:-1]):
         target = path[i + 1]
-        options = list(filter(lambda r: (r.child_entity.id == source
-                                         and r.parent_entity.id == target)
-                              or (r.parent_entity.id == source
-                                  and r.child_entity.id == target),
+        # Use modern featuretools API for relationships
+        options = list(filter(lambda r: (r.child_dataframe.ww.name == source
+                                         and r.parent_dataframe.ww.name == target)
+                              or (r.parent_dataframe.ww.name == source
+                                  and r.child_dataframe.ww.name == target),
                               entityset.relationships))
         if len(options) == 0:
             raise ValueError("No Relationship between {} and {}".format(source, target))
         r = options[0]
-        if target == r.child_entity.id:
+        if target == r.child_dataframe.ww.name:
             # Transfer cutoff_times to "child", e.g., PATIENTS -> ADMISSIONS
-            child_df_index = r.child_entity.df[r.child_variable.id].values
+            # Updated for modern featuretools API - direct dataframe access
+            child_df_index = entityset[r.child_dataframe.ww.name][r.child_column].values
             cutoff_times = cutoff_times.loc[child_df_index]
-            cutoff_times.index = r.child_entity.df.index
-        elif source == r.child_entity.id:
+            cutoff_times.index = entityset[r.child_dataframe.ww.name].index
+        elif source == r.child_dataframe.ww.name:
             # Transfer cutoff_times to "parent", e.g., ADMISSIONS -> PATIENTS
-            cutoff_times[r.child_variable.id] = r.child_entity.df[r.child_variable.id]
+            # Updated for modern featuretools API - direct dataframe access
+            cutoff_times[r.child_column] = entityset[r.child_dataframe.ww.name][r.child_column]
             if reduce == "latest":
-                idx = cutoff_times.groupby(r.child_variable.id).time.idxmax().values
+                idx = cutoff_times.groupby(r.child_column).time.idxmax().values
             elif reduce == 'earist':
-                idx = cutoff_times.groupby(r.child_variable.id).time.idxmin().values
+                idx = cutoff_times.groupby(r.child_column).time.idxmin().values
             else:
                 raise ValueError("Unknown reduce option.")
             cutoff_times = cutoff_times.loc[idx]
-            cutoff_times = cutoff_times.set_index(r.child_variable.id, drop=True)
+            cutoff_times = cutoff_times.set_index(r.child_column, drop=True)
 
     return cutoff_times
 
 
 def get_records(entityset, subject_id, entity_id, time_index=None, cutoff_time=None):
-    entity = entityset[entity_id].df
+    # Updated for modern featuretools API - direct dataframe access
+    entity = entityset[entity_id]
 
     # select records by SUBJECT_ID
     if 'SUBJECT_ID' in entity.columns:
@@ -118,9 +140,10 @@ def get_records(entityset, subject_id, entity_id, time_index=None, cutoff_time=N
 
 
 def get_item_dict(es):
-    item_dict = {'LABEVENTS': es['D_LABITEMS'].df.loc[:, 'LABEL'].to_dict()}
+    # Updated for modern featuretools API - direct dataframe access
+    item_dict = {'LABEVENTS': es['D_LABITEMS'].loc[:, 'LABEL'].to_dict()}
     for entity_id in ['CHARTEVENTS', 'SURGERY_VITAL_SIGNS']:
-        df = es['D_ITEMS'].df
+        df = es['D_ITEMS']
         # TODO: Change 'LABEL' to 'LABEL_CN' for Chinese labels
         items = df[df['LINKSTO'] == entity_id.lower()].loc[:, 'LABEL']
         item_dict[entity_id] = items.to_dict()

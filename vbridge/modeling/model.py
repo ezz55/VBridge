@@ -1,24 +1,24 @@
 import os
 import pickle
+import numpy as np
 
 import pandas as pd
 import shap
 import sklearn
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.utils import class_weight
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from sklearn.preprocessing import MinMaxScaler, OneHotEncoder as SklearnOneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.utils.class_weight import compute_class_weight
 from xgboost import XGBClassifier
 
-from vbridge.modeling.primitive.onehotencoder import OneHotEncoder
 from vbridge.utils.directory_helpers import output_workspace
 
 classification_metrics = {
     'Accuracy': sklearn.metrics.accuracy_score,
-    'F1 Macro': lambda y_true, y_pred: sklearn.metrics.f1_score(y_true, y_pred, average="macro"),
-    'Precision': lambda y_true, y_pred: sklearn.metrics.precision_score(y_true, y_pred,
-                                                                        average="macro"),
-    'Recall': lambda y_true, y_pred: sklearn.metrics.recall_score(y_true, y_pred, average="macro"),
+    'F1 Macro': lambda y_true, y_pred: sklearn.metrics.f1_score(y_true, y_pred, average="macro", zero_division=0),
+    'Precision': lambda y_true, y_pred: sklearn.metrics.precision_score(y_true, y_pred, average="macro", zero_division=0),
+    'Recall': lambda y_true, y_pred: sklearn.metrics.recall_score(y_true, y_pred, average="macro", zero_division=0),
     'Confusion Matrix': sklearn.metrics.confusion_matrix,
     'AUROC': lambda y_true, y_pred: sklearn.metrics.roc_auc_score(y_true, y_pred, average="macro"),
 }
@@ -38,10 +38,13 @@ def test(model, X, y):
 
 class Model:
     def __init__(self, topk=10):
-        self._one_hot_encoder = OneHotEncoder(topk=topk)
-        self._imputer = SimpleImputer()
-        self._scaler = MinMaxScaler()
-        self._model = XGBClassifier(use_label_encoder=False)
+        self._preprocessor = None
+        self._feature_names = None
+        self._model = XGBClassifier(
+            eval_metric='logloss',
+            enable_categorical=True,
+            random_state=42  # Add for reproducibility
+        )
         self._explainer = None
 
     @property
@@ -51,44 +54,108 @@ class Model:
     def fit(self, X, y):
         y_train = y.values
 
-        X_train = self._one_hot_encoder.fit_transform(X)
-        X_train = self._imputer.fit_transform(X_train)
-        X_train = self._scaler.fit_transform(X_train)
+        # Identify categorical and numerical columns
+        categorical_features = X.select_dtypes(include=['object']).columns.tolist()
+        numerical_features = X.select_dtypes(include=['int64', 'float64', 'bool']).columns.tolist()
+        
+        # Create preprocessing pipeline
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ('num', SimpleImputer(strategy='mean'), numerical_features),
+                ('cat', SklearnOneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_features)
+            ],
+            remainder='drop'  # Drop any remaining columns instead of passthrough
+        )
+        
+        # Fit and transform the data
+        X_train = preprocessor.fit_transform(X)
+        
+        # Scale the features
+        scaler = MinMaxScaler()
+        X_train = scaler.fit_transform(X_train)
 
-        weights = class_weight.compute_class_weight('balanced', [0, 1], y_train)
-        sample_weight = [weights[instance] for instance in y_train]
-        self._model.fit(X_train, y_train, sample_weight=sample_weight)
+        # Store the preprocessing pipeline
+        self._preprocessor = preprocessor
+        self._scaler = scaler
+        
+        # Get feature names for later use
+        num_feature_names = numerical_features
+        cat_feature_names = []
+        if categorical_features:
+            cat_feature_names = preprocessor.named_transformers_['cat'].get_feature_names_out(categorical_features).tolist()
+        self._feature_names = num_feature_names + cat_feature_names
+
+        weights = compute_class_weight(
+            class_weight='balanced',
+            classes=np.unique(y_train),
+            y=y_train
+        )
+        sample_weight = np.array([weights[np.where(np.unique(y_train) == instance)[0][0]] for instance in y_train])
+        
+        self._model.fit(
+            X_train, 
+            y_train, 
+            sample_weight=sample_weight,
+            verbose=False
+        )
 
     def transform(self, X):
-        X = self._one_hot_encoder.transform(X)
-        X = self._imputer.transform(X)
+        X = self._preprocessor.transform(X)
         X = self._scaler.transform(X)
         return self._model.predict_proba(X)
 
     def test(self, X, y):
         y_test = y.values
-        X_test = self._one_hot_encoder.transform(X)
-        X_test = self._imputer.transform(X_test)
+        X_test = self._preprocessor.transform(X)
         X_test = self._scaler.transform(X_test)
         return test(self.model, X_test, y_test)
 
     def SHAP(self, X):
         if self._explainer is None:
-            self._explainer = shap.TreeExplainer(self._model)
-        columns = X.columns
-        X = self._one_hot_encoder.transform(X)
-        X = self._imputer.transform(X)
-        X = self._scaler.transform(X)
-        dummy_columns = self._one_hot_encoder.dummy_columns
+            self._explainer = shap.TreeExplainer(
+                self._model,
+                feature_names=self._feature_names
+            )
+        
+        # Store original columns for reference
+        original_columns = X.columns
+        
+        # Transform the data through the preprocessing pipeline
+        X_transformed = self._preprocessor.transform(X)
+        X_transformed = self._scaler.transform(X_transformed)
 
-        shap_values = pd.DataFrame(self._explainer.shap_values(X), columns=dummy_columns)
-        for original_col, dummies in self._one_hot_encoder.dummy_dict.items():
-            sub_dummy_column = ["{}_{}".format(original_col, cat) for cat in dummies]
-            assert all([col in dummy_columns for col in sub_dummy_column])
-            if original_col + "_Others" in dummy_columns:
-                sub_dummy_column.append(original_col + "_Others")
-            shap_values[original_col] = shap_values.loc[:, sub_dummy_column].sum(axis=1)
-        return shap_values.reindex(columns=columns)
+        # Get SHAP values
+        shap_values = self._explainer.shap_values(X_transformed)
+        
+        # Handle both binary and multiclass cases
+        if isinstance(shap_values, list):
+            # Binary classification - use positive class
+            shap_values = shap_values[1]
+        
+        # Ensure feature names match the actual SHAP output dimensions
+        if shap_values.shape[1] != len(self._feature_names):
+            # This shouldn't happen, but handle it gracefully
+            feature_names_adjusted = self._feature_names[:shap_values.shape[1]]
+        else:
+            feature_names_adjusted = self._feature_names
+        
+        shap_values = pd.DataFrame(
+            shap_values,
+            columns=feature_names_adjusted,
+            index=X.index
+        )
+        
+        return shap_values
+    
+    def get_transformed_data(self, X):
+        """Get the transformed data that matches SHAP dimensions."""
+        X_transformed = self._preprocessor.transform(X)
+        X_transformed = self._scaler.transform(X_transformed)
+        return pd.DataFrame(
+            X_transformed, 
+            columns=self._feature_names[:X_transformed.shape[1]],
+            index=X.index
+        )
 
 
 class ModelManager:
@@ -96,7 +163,24 @@ class ModelManager:
         self._models = {}
         self.dataset_id = task.dataset_id
         self.task_id = task.task_id
-        self.X_train, self.X_test = train_test_split(fm, random_state=3)
+        
+        # Use stratified split to ensure balanced classes in train/test
+        # Also use a larger test size for more robust evaluation
+        if labels and len(labels) == 1:
+            # Single label - use stratified split
+            label_name = list(labels.keys())[0]
+            label_values = labels[label_name]
+            
+            # Create stratified split with 30% test size for more robust evaluation
+            splitter = StratifiedShuffleSplit(n_splits=1, test_size=0.3, random_state=42)
+            train_idx, test_idx = next(splitter.split(fm, label_values))
+            
+            self.X_train = fm.iloc[train_idx]
+            self.X_test = fm.iloc[test_idx]
+        else:
+            # Fallback to regular split if multiple labels or other issues
+            self.X_train, self.X_test = train_test_split(fm, test_size=0.3, random_state=42)
+        
         self.y_train = pd.DataFrame(index=self.X_train.index)
         self.y_test = pd.DataFrame(index=self.X_test.index)
         for name, label in labels.items():
@@ -147,6 +231,31 @@ class ModelManager:
             return {target: model.SHAP(X) for target, model in self.models.items()}
         else:
             return self.models[target].SHAP(X)
+    
+    def get_transformed_data(self, target=None, dataset='test'):
+        """Get the transformed data that matches SHAP dimensions.
+        
+        Args:
+            target (str): Target model name. If None, uses first available model.
+            dataset (str): 'train', 'test', or 'all' for which dataset to transform.
+        
+        Returns:
+            pd.DataFrame: Transformed data matching SHAP dimensions.
+        """
+        if target is None:
+            target = list(self.models.keys())[0]
+        
+        model = self.models[target]
+        
+        if dataset == 'train':
+            return model.get_transformed_data(self.X_train)
+        elif dataset == 'test':
+            return model.get_transformed_data(self.X_test)
+        elif dataset == 'all':
+            X_all = pd.concat([self.X_train, self.X_test])
+            return model.get_transformed_data(X_all)
+        else:
+            raise ValueError("dataset must be 'train', 'test', or 'all'")
 
     def save(self):
         path = os.path.join(output_workspace, self.dataset_id, self.task_id, 'model.pkl')

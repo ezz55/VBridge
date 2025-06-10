@@ -1,3 +1,4 @@
+import warnings
 import featuretools as ft
 import numpy as np
 import pandas as pd
@@ -8,6 +9,9 @@ from featuretools.selection import (
 from vbridge.utils.directory_helpers import exist_fm, load_fm, save_fm
 from vbridge.utils.entityset_helpers import find_path
 
+# Suppress pandas FutureWarnings that come from featuretools internal operations
+warnings.filterwarnings('ignore', category=FutureWarning, module='pandas')
+warnings.filterwarnings('ignore', category=FutureWarning, module='featuretools')
 
 class Featurization:
 
@@ -21,14 +25,32 @@ class Featurization:
     @staticmethod
     def select_features(fm, fl=None):
         if fl is None:
-            fm = remove_highly_null_features(fm, pct_null_threshold=0.5)
+            # Use less aggressive feature selection to preserve more features
+            fm = remove_highly_null_features(fm, pct_null_threshold=0.95)  # Allow more nulls
             fm = remove_low_information_features(fm)
-            fm = remove_highly_correlated_features(fm)
+            fm = remove_highly_correlated_features(fm, pct_corr_threshold=0.95)
             return fm
         else:
-            fm, fl = remove_highly_null_features(fm, fl, pct_null_threshold=0.5)
+            # Use less aggressive feature selection to preserve more features  
+            fm, fl = remove_highly_null_features(fm, fl, pct_null_threshold=0.95)  # Allow more nulls
             fm, fl = remove_low_information_features(fm, fl)
-            fm, fl = remove_highly_correlated_features(fm, fl)
+            fm, fl = remove_highly_correlated_features(fm, fl, pct_corr_threshold=0.95)
+            return fm, fl
+
+    @staticmethod
+    def select_features_permissive(fm, fl=None):
+        """Very permissive feature selection for medical data that preserves important WHERE clause features"""
+        if fl is None:
+            # Only remove features that are completely null (100% null)
+            fm = remove_highly_null_features(fm, pct_null_threshold=0.99)
+            # Skip low information filtering for medical data
+            # Skip correlation filtering to preserve related medical measurements
+            return fm
+        else:
+            # Only remove features that are completely null (100% null)
+            fm, fl = remove_highly_null_features(fm, fl, pct_null_threshold=0.99)
+            # Skip low information filtering for medical data
+            # Skip correlation filtering to preserve related medical measurements
             return fm, fl
 
     @staticmethod
@@ -75,6 +97,7 @@ class Featurization:
 
             fm, fl = Featurization.merge_features([f[0] for f in fp], [f[1] for f in fp])
             fm, fl = Featurization.remove_uninterpretable_features(fm, fl)
+            # Apply feature selection
             fm, fl = Featurization.select_features(fm, fl)
 
         fm.index = fm.index.astype('str')
@@ -83,18 +106,25 @@ class Featurization:
         return fm, fl
 
     def _generate_features(self, target_entity=None, cutoff_time=None, **kwargs):
-
         if cutoff_time is None:
-            target = self.es[self.target_entity]
-            cutoff_time = target.df.loc[:, [target.index, target.time_index]]
+            target_df = self.es[self.target_entity]
+            
+            index_col = self.task.entity_configs[self.target_entity]['index']
+            time_col = self.task.entity_configs[self.target_entity]['time_index']
+            
+            cutoff_time = target_df.loc[:, [index_col, time_col]]
             cutoff_time.columns = ['instance_id', 'time']
 
-        fm, fl = ft.dfs(entityset=self.es,
-                        target_entity=self.target_entity,
+        fm, fl = ft.dfs(
+            entityset=self.es,
+            target_dataframe_name=self.target_entity,
                         allowed_paths=find_path(self.es, self.target_entity, target_entity),
-                        ignore_variables=self.task.ignore_variables,
+            ignore_columns=self.task.ignore_variables,
                         cutoff_time=cutoff_time,
-                        **kwargs)
+            max_depth=2,
+            include_cutoff_time=True,
+            **kwargs
+        )
 
         return fm, fl
 
@@ -102,6 +132,7 @@ class Featurization:
         return self._generate_features(
             target_entity='PATIENTS',
             trans_primitives=[],
+            max_features=100,
             **kwargs
         )
 
@@ -111,6 +142,7 @@ class Featurization:
             agg_primitives=["mean", "std", "trend"],
             where_primitives=["mean", "std", "trend"],
             trans_primitives=[],
+            max_features=100,
             **kwargs
         )
 
@@ -120,6 +152,7 @@ class Featurization:
             agg_primitives=["mean", "std", "trend"],
             where_primitives=["mean", "std", "trend"],
             trans_primitives=[],
+            max_features=100,
             **kwargs
         )
 
@@ -129,5 +162,6 @@ class Featurization:
             agg_primitives=["mean"],
             where_primitives=["mean"],
             trans_primitives=[],
+            max_features=100,
             **kwargs
         )

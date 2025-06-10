@@ -40,8 +40,19 @@ def get_temporal(es, task, direct_id, entity_id, cutoff_times=None):
         Returns:
             A dict mapping entity ids to the records in the entity.
     """
-    subject_id = es[task.target_entity].df.loc[direct_id]['SUBJECT_ID']
-    cutoff_time = cutoff_times.loc[direct_id, 'time']
+    # Ensure we get scalar values, not Series
+    subject_id_value = es[task.target_entity].loc[direct_id]['SUBJECT_ID']
+    if hasattr(subject_id_value, 'iloc'):
+        subject_id = subject_id_value.iloc[0]
+    else:
+        subject_id = subject_id_value
+        
+    cutoff_time_value = cutoff_times.loc[direct_id, 'time']
+    if hasattr(cutoff_time_value, 'iloc'):
+        cutoff_time = cutoff_time_value.iloc[0]
+    else:
+        cutoff_time = cutoff_time_value
+        
     if entity_id is None:
         records = {entity_id: get_records(es, subject_id, entity_id,
                                           task.entity_configs[entity_id].get('time_index', None),
@@ -144,7 +155,7 @@ class TemporalInfo(Resource):
             entity_id = args.get('entity_id')
         except Exception as e:
             LOGGER.exception(str(e))
-            return {'message', str(e)}, 400
+            return {'message': str(e)}, 400
 
         try:
             settings = current_app.settings
@@ -195,9 +206,19 @@ class Info(Resource):
             $ref: '#/components/responses/ErrorMessage'
         """
         try:
+            # Validate patient ID
+            if direct_id is None or direct_id == 'null' or direct_id == 'undefined':
+                return {'message': 'Invalid patient ID provided'}, 400
+                
             settings = current_app.settings
-            res = get_patient_info(settings['entityset'], settings['task'], direct_id,
-                                   settings['cutoff_time'])
+            es = settings['entityset']
+            task = settings['task']
+            
+            # Check if patient exists in the target entity
+            if direct_id not in es[task.target_entity].index:
+                return {'message': f'Patient {direct_id} not found'}, 404
+                
+            res = get_patient_info(es, task, direct_id, settings['cutoff_time'])
             res = jsonify(res)
         except Exception as e:
             LOGGER.exception(e)

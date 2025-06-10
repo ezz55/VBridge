@@ -80,10 +80,9 @@ class PatientIds(Resource):
             settings = current_app.settings
             es = settings['entityset']
             task = settings['task']
-            if task.dataset_id == 'mimic-demo':
-                # TODO: Provide an example for the mimic-demo case
-                return ["112662"]
-            return jsonify(es[task.target_entity].df.index.tolist())
+            # Return all available patient IDs from the target entity
+            patient_ids = es[task.target_entity].index.tolist()
+            return jsonify(patient_ids)
         except Exception as e:
             LOGGER.exception(e)
             return {'message': str(e)}, 500

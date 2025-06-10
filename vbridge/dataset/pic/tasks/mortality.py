@@ -14,8 +14,14 @@ def pic_48h_in_admission_mortality_task():
     target_entity = 'ADMISSIONS'
 
     def get_cutoff_times(es):
-        cutoff_time = es[target_entity].df.loc[:, [es[target_entity].index,
-                                                   es[target_entity].time_index]]
+                # Access dataframe directly (modern featuretools 1.0+ API)
+        entity_df = es[target_entity]
+        
+        # Get the index and time_index column names from the entity configuration
+        index_col = entity_configs[target_entity]['index']
+        time_col = entity_configs[target_entity]['time_index']
+        
+        cutoff_time = entity_df.loc[:, [index_col, time_col]]
         cutoff_time.columns = ['instance_id', 'time']
         cutoff_time['time'] += timedelta(hours=48)
         return cutoff_time
@@ -36,7 +42,7 @@ def pic_48h_in_admission_mortality_task():
         short_desc='Whether the patient will die or survive within this admission.',
         label_fns={
             'mortality': {
-                'label_values': lambda es: es['ADMISSIONS'].df['HOSPITAL_EXPIRE_FLAG'],
+                'label_values': lambda es: es['ADMISSIONS']['HOSPITAL_EXPIRE_FLAG'],
                 'label_type': 'boolean',
                 'label_extent': ['low-risk', 'high-risk']
             }

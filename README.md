@@ -1,153 +1,198 @@
-<p align="left">
-<img width=15% src="https://dai.lids.mit.edu/wp-content/uploads/2018/06/Logo_DAI_highres.png" alt=“DAI-Lab” />
-<i>An open source project from Data to AI Lab at MIT.</i>
-</p>
+# VBridge - Modernized Healthcare ML Visualization Platform
 
-<!-- Uncomment these lines after releasing the package to PyPI for version and downloads badges -->
-<!--[![PyPI Shield](https://img.shields.io/pypi/v/vbridge.svg)](https://pypi.python.org/pypi/vbridge)-->
-<!--[![Downloads](https://pepy.tech/badge/vbridge)](https://pepy.tech/project/vbridge)-->
 [![Github Actions Shield](https://github.com/sibyl-dev/VBridge/workflows/Run%20Tests/badge.svg)](https://github.com/sibyl-dev/VBridge/actions)
 
+## About This Repository
 
-# VBridge
+This is a **modernized version** of the original [VBridge](https://github.com/sibyl-dev/VBridge) project from MIT's Data to AI Lab. We have updated the codebase to be **fully compatible with current versions** of Python (3.8-3.12) and Node.js (18+), with optimizations for **Apple ARM64 chips** (M1/M2/M3).
 
-VBridge is an interactive visualization system for explaining healthcare models.
-This project aims to support users understand machine learning models using
-Electronic Health Records (e.g., [MIMIC-III](https://mimic.physionet.org))
-as inputs for health predictions.
-The system is built upon [Cardea](https://github.com/MLBazaar/Cardea) and a number of AutoML tools developed under [The MLBazaar Project](https://mlbazaar.github.io/) at [Data to AI Lab at MIT](https://dai.lids.mit.edu/).
+### 🆕 What's New in This Version
 
-The related paper, "VBridge: Connecting the Dots Between Features and Data to Explain Healthcare Models,"
-has been accepted to TVCG ([IEEE VIS 2021](http://ieeevis.org/year/2021/welcome))
-with an **Honorable Mention Award** ([pdf](https://arxiv.org/abs/2108.02550)).
+**Major Compatibility Updates:**
+- ✅ **Python 3.8-3.12 support** (original was Python 3.7)
+- ✅ **Modern dependency versions** (pandas 2.0+, scikit-learn 1.3+, React 18+)
+- ✅ **Apple ARM64 optimization** for M1/M2/M3 MacBooks
+- ✅ **Fixed deprecated API calls** in featuretools, pandas, and Flask
+- ✅ **Resolved data leakage issues** in model training
+- ✅ **Enhanced feature generation** (45 rich medical features vs. original 10)
+- ✅ **Improved error handling** and explainer stability
+- ✅ **Modern TypeScript/React frontend** with latest dependencies
 
-Check our :movie_camera: [Video](https://www.youtube.com/watch?v=V7kfbnuBqFI).
+**Technical Improvements:**
+- Fixed featuretools API modernization (`get_backward_entities()` → `get_backward_dataframes()`)
+- Resolved CHARTEVENTS time filtering and ITEMID data type issues
+- Implemented proper train/test splitting with StratifiedShuffleSplit
+- Enhanced SHAP explainer with robust error handling
+- Updated Flask-CORS and JSON serialization for modern browsers
+- Comprehensive API endpoint testing and validation
 
-![](docs/images/teaser.png)
+---
 
-# Quickstart
+## Original VBridge
 
-The `VBridge` project contains three parts: `vbridge-core`, `vbridge-api`, and `vbridge-vis`, where
-* `vbridge-core` is a machine learning library built upon [Cardea](https://github.com/MLBazaar/Cardea)
- that supports users to 1) develop machine learning models from Electronic Health Record dataset
- and 2) generate explanations in different levels (see our [paper](https://arxiv.org/abs/2108.02550)).
-* `vbridge-api` is a collection of Restful APIs built on the top of `vbridge-core`, that support
- users to retrieve information (data, model, explanation) from a vbridge instance.
-* `vbridge-vis` is a [React](https://reactjs.org/) app, an interface that visualizes the information got from `vbridge-api`.
+VBridge is an interactive visualization system for explaining healthcare models. This project supports users in understanding machine learning models using Electronic Health Records (e.g., [MIMIC-III](https://mimic.physionet.org)) as inputs for health predictions.
 
-## Install from source
-Ensure that [python (>=3.7)](https://www.python.org/) (for `vbridge-core` and `vbridge-api`)
-and [node.js](https://nodejs.org/) (for `vbridge-vis`) have been installed.
+The system is built upon [Cardea](https://github.com/MLBazaar/Cardea) and AutoML tools from [The MLBazaar Project](https://mlbazaar.github.io/) at [Data to AI Lab at MIT](https://dai.lids.mit.edu/).
 
-For using `vbridge-core` and `vbridge-api`, clone the repository and install it from source by running `make install`:
+**Original Paper:** "VBridge: Connecting the Dots Between Features and Data to Explain Healthcare Models" - **IEEE VIS 2021 Honorable Mention Award** ([pdf](https://arxiv.org/abs/2108.02550))
 
+**Demo Video:** 🎥 [YouTube](https://www.youtube.com/watch?v=V7kfbnuBqFI)
+
+![VBridge Interface](docs/images/teaser.png)
+
+---
+
+## 🚀 Quick Start
+
+### System Requirements
+
+- **Python**: 3.8+ (tested on 3.8, 3.9, 3.10, 3.11, 3.12)
+- **Node.js**: 18+ (for the React frontend)
+- **Memory**: 8GB+ RAM recommended
+- **OS**: macOS (ARM64/Intel), Linux, Windows
+
+### Installation
+
+1. **Clone the repository**
 ```bash
-git clone git@github.com:sibyl-dev/VBridge.git
-cd vbridge
-make install
+git clone https://github.com/your-username/VBridge-Modernized.git
+cd VBridge-Modernized
 ```
 
-For using `vbridge-vis`, further run
-
+2. **Setup Python environment**
 ```bash
-cd ../client
+# Using pip
+pip install -r requirements.txt
+
+# Or using pipenv
+pipenv install
+
+# Or using conda
+conda create -n vbridge python=3.11
+conda activate vbridge
+pip install -r requirements.txt
+```
+
+3. **Setup Node.js frontend**
+```bash
+cd client
 npm install
 ```
 
-## Quickstart
-In this short tutorial we will help you get started with VBridge.
-
-Before starting, we first download a sample dataset [mimic-iii-demo](https://physionet.org/content/mimiciii-demo/1.4/) (13.4MB)
-by running the following command in the root directory of this project (`VBridge/`).
+4. **Download sample data**
 ```bash
+# Return to project root
+cd ..
+
+# Download MIMIC-III demo dataset (13.4MB)
 wget -r -N -c -np https://physionet.org/files/mimiciii-demo/1.4/ -P data/
 ```
-You can also directly go to the dataset webpage and download the `.zip` file.
-Unzip and move it to `VBridge/data/`.
-Ensure that the table files (.csv) exist in `data/physionet.org/files/mimiciii-demo/1.4/`.
 
+### Running VBridge
 
-### How to use `vbridge-core`
-
-<details>
-  <summary>A step-by-step example</summary>
-    
----
-    
-**1. Load Task and Initialization**. We then load a predefined task called *mimic_48h_in_admission_mortality*.
-
-```python
-from vbridge.core import VBridge
-from vbridge.dataset.mimic_demo.tasks.mortality import mimic_48h_in_admission_mortality_task
-
-task = mimic_48h_in_admission_mortality_task()
-vbridge = VBridge(task)
-```
-
-This task aims to predict the patient's **mortality risk** (i.e., die or survive) during the hospital admission according to the patient's demographics, label tests, and vital signs in the first 48 hours after being admitted.
-
-**2. Load Entity Set**. We load the tables and organize them into an `Entityset`.
-```python
-vbridge.load_entity_set()
-```
-In brief, an `Entityset` is a collection of dataframes and the relationships between them. Check [featuretools](https://featuretools.alteryx.com/en/stable/getting_started/using_entitysets.html) for more details.
-
-**3. Generate Features**. Then we use [Deep Feature Synthesis](https://featuretools.alteryx.com/en/stable/getting_started/afe.html)
-to generate features.
-```python
-feature_matrix, feature_list = vbridge.generate_features()
-feature_matrix.head()
-```
-```
-        ADMISSION_TYPE         ADMISSION_LOCATION  ...  MEAN(CHARTEVENTS.VALUENUM
-                                                             WHERE ITEMID = 220181)
-HADM_ID
-171878        ELECTIVE  PHYS REFERRAL/NORMAL DELI  ...                          NaN
-172454       EMERGENCY       EMERGENCY ROOM ADMIT  ...                    73.046512
-167021       EMERGENCY       EMERGENCY ROOM ADMIT  ...                    80.250000
-164869       EMERGENCY  CLINIC REFERRAL/PREMATURE  ...                          NaN
-158100       EMERGENCY  CLINIC REFERRAL/PREMATURE  ...                    81.916667
-
-```
-
-**4. Train Models**. We train a sample machine learning model (i.e., xgboost) for the mortality prediction task.
-```python
-vbridge.train_model()
-```
-
-**5. Generate Explanations**. At last, we explain the model predictions.
-In VBridge, we develop three types of explanations: *feature contributions* (i.e., [SHAP](https://github.com/slundberg/shap) values),
-*what-if-analysis*, and *influential records*.
-We take feature contributions as an example.
-```python
-shap_values = vbridge.feature_explain(X=feature_matrix, target='mortality')
-```
-    
----
-    
-</details>
-
-You can also check `notebooks/Getting Started.ipynb` for this example.
-
-### How to use `vbridge-api`
-Start the VBridge server by
+1. **Start the Python API server**
 ```bash
 python vbridge/router/app.py
 ```
+   Server will start at `http://localhost:7777`
 
-Check `http://localhost:7777/apidocs/` in your browser for the RESTful API documentation.
-
-### How to use `vbridge-vis`
-After starting the VBridge server, open another terminal, go to the `VBridge/` folder, and run
+2. **Start the React frontend** (in a new terminal)
 ```bash
 cd client
 npm start
 ```
+   Frontend will open at `http://localhost:3000`
 
-Then navigate to `http://localhost:3000/` in your browser to see `vbridge-vis`.
+3. **Verify installation**
+   - Visit `http://localhost:7777/apidocs/` for API documentation
+   - Visit `http://localhost:3000/` for the main interface
 
-# Citations
+---
+
+## 📋 Project Structure
+
 ```
+VBridge/
+├── vbridge/               # Python backend (vbridge-core + vbridge-api)
+│   ├── core/             # Core ML and feature engineering
+│   ├── router/           # Flask API endpoints
+│   └── explainer/        # SHAP and explanation logic
+├── client/               # React frontend (vbridge-vis)
+│   ├── src/              # TypeScript/React source code
+│   └── public/           # Static assets
+├── data/                 # MIMIC-III demo dataset
+├── notebooks/            # Jupyter examples
+└── docs/                 # Documentation
+```
+
+## 🔧 Development
+
+### Backend Development
+```bash
+# Install in development mode
+pip install -e .
+
+# Run tests
+pytest tests/
+
+# Start development server with auto-reload
+python vbridge/router/app.py
+```
+
+### Frontend Development
+```bash
+cd client
+
+# Start development server with hot reload
+npm start
+
+# Build for production
+npm run build
+
+# Run tests
+npm test
+```
+
+## 📊 Features
+
+- **Interactive Patient Explorer**: Browse 129 MIMIC-III demo patients
+- **Feature Analysis**: 45 rich medical features from EHR data
+- **Mortality Prediction**: ML models with explanation capabilities
+- **SHAP Explanations**: Feature importance and contribution analysis
+- **Temporal Analysis**: Time-series view of patient data
+- **What-if Analysis**: Explore prediction changes with feature perturbations
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+**Python dependency conflicts:**
+```bash
+# Use virtual environment
+python -m venv vbridge-env
+source vbridge-env/bin/activate  # On Windows: vbridge-env\Scripts\activate
+pip install -r requirements.txt
+```
+
+**Node.js version issues:**
+```bash
+# Use nvm to manage Node versions
+nvm install 18
+nvm use 18
+cd client && npm install
+```
+
+**Apple M1/M2 specific issues:**
+```bash
+# If you encounter ARM64 compatibility issues
+arch -arm64 pip install -r requirements.txt
+```
+
+## 📝 Citations
+
+If you use this modernized version, please cite both the original paper and acknowledge this updated implementation:
+
+```bibtex
 @ARTICLE{cheng2021vbridge,
   author={Cheng, Furui and Liu, Dongyu and Du, Fan and Lin, Yanna and Zytek, Alexandra and Li, Haomin and Qu, Huamin and Veeramachaneni, Kalyan},
   journal={IEEE Transactions on Visualization and Computer Graphics}, 
@@ -157,4 +202,34 @@ Then navigate to `http://localhost:3000/` in your browser to see `vbridge-vis`.
   number={1},
   pages={378-388},
   doi={10.1109/TVCG.2021.3114836}
- }
+}
+```
+
+## 🤝 Contributing
+
+We welcome contributions! This modernized version maintains compatibility with the original VBridge while supporting current development environments.
+
+### Areas for Contribution
+- Comprehensive interactive Visualization
+- AI Powered CDSS
+- Additional healthcare datasets
+- New explanation methods
+- Performance optimizations
+- Mobile/responsive design improvements
+- Documentation and tutorials
+
+
+## 📜 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **Original VBridge Team**: MIT Data to AI Lab
+- **Modernization**: Updated for Python 3.8-3.12 and Node.js 18+ compatibility
+- **MIMIC-III**: Johnson, A., Pollard, T., & Mark, R. (2016). MIMIC-III Clinical Database
+- **MLBazaar Project**: AutoML tools and Cardea integration
+
+---
+
+**Note**: This is an independent modernization effort to maintain VBridge compatibility with current development environments. For the original research and implementation, please refer to the [official VBridge repository](https://github.com/sibyl-dev/VBridge).

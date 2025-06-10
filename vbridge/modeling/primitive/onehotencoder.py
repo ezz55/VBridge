@@ -10,13 +10,20 @@ class OneHotEncoder(TransformerMixin):
     def __init__(self, topk=10):
         self._dummy_dict = {}
         self._dummy_columns = None
+        self._categorical_columns = []
         self.topk = topk
 
     def fit(self, X):
-        X = pd.DataFrame(X)
+        X = pd.DataFrame(X).copy()
+        
+        # Track which columns are categorical
+        self._categorical_columns = []
+        
         for column_name in X.columns:
             if X[column_name].dtype == object:
-                values = X[column_name]
+                self._categorical_columns.append(column_name)
+                values = X[column_name].copy()
+                
                 if values.apply(lambda row: isinstance(row, list)).all():
                     counts = values.apply(collections.Counter).reset_index(drop=True)
                     sub_df = pd.DataFrame.from_records(counts, index=values.index).fillna(0)
@@ -26,21 +33,29 @@ class OneHotEncoder(TransformerMixin):
                     others = sub_df[[col for col in sub_df.columns if col not in selected_dummies]]
                     dummies['Others'] = others.any(axis=1)
                 else:
-                    counts = pd.value_counts(values, sort=True, ascending=False)
+                    counts = values.value_counts(sort=True, ascending=False)
                     selected_dummies = counts[:self.topk].index
                     mask = values.isin(selected_dummies)
                     values[~mask] = "Others"
                     dummies = pd.get_dummies(values)
+                    
                 dummies = dummies.add_prefix(column_name + "_")
                 X = X.join(dummies)
                 self._dummy_dict[column_name] = selected_dummies
-        self._dummy_columns = [col for col in X.columns if col not in self.dummy_dict]
+        
+        # Remove original categorical columns and keep only numeric + dummy columns
+        X = X.drop(columns=self._categorical_columns)
+        self._dummy_columns = list(X.columns)
         return self
 
     def transform(self, X):
-        X = pd.DataFrame(X)
+        X = pd.DataFrame(X).copy()
+        
+        # Add dummy columns for each categorical feature
         for column_name, selected_dummies in self._dummy_dict.items():
-            values = X[column_name]
+            if column_name in X.columns:
+                values = X[column_name].copy()
+                
             if values.apply(lambda row: isinstance(row, list)).all():
                 counts = values.apply(collections.Counter).reset_index(drop=True)
                 sub_df = pd.DataFrame.from_records(counts, index=values.index).fillna(0)
@@ -51,9 +66,13 @@ class OneHotEncoder(TransformerMixin):
                 mask = values.isin(selected_dummies)
                 values[~mask] = "Others"
                 dummies = pd.get_dummies(values)
+                    
             dummies = dummies.add_prefix(column_name + "_")
             X = X.join(dummies)
-        return X.reindex(columns=self.dummy_columns)
+        
+        # Remove original categorical columns and return only the expected columns
+        X = X.drop(columns=self._categorical_columns, errors='ignore')
+        return X.reindex(columns=self.dummy_columns, fill_value=0)
 
     @property
     def dummy_columns(self):

@@ -2,7 +2,7 @@ import React from 'react';
 import * as _ from 'lodash';
 
 import { Layout, Drawer, Button, Switch } from 'antd';
-import { CloseOutlined } from '@material-ui/icons';
+import { CloseOutlined } from '@mui/icons-material';
 
 import Panel from 'components/Panel';
 import MetaView from "./components/MetaView";

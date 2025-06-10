@@ -4,7 +4,7 @@ import {
     CaretRightOutlined, ArrowDownOutlined, ArrowUpOutlined, LineChartOutlined,
     TableOutlined, QuestionOutlined
 } from "@ant-design/icons";
-import { ArrowRightOutlined, ArrowLeftOutlined } from "@material-ui/icons";
+import { ArrowRightOutlined, ArrowLeftOutlined } from "@mui/icons-material";
 import { Tooltip, Button } from "antd";
 import { IDataFrame } from "data-forge";
 import { Feature, isCategoricalFeature, isGroupFeature, isNumericalFeature } from "type";

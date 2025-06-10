@@ -1,12 +1,19 @@
 # -*- coding: utf-8 -*-
+import os
+import warnings
+import pandas as pd
+import numpy as np
 from vbridge.data_loader.data import create_entityset
 from vbridge.explainer.explanation import Explainer
 from vbridge.featurization.feature import Featurization
 from vbridge.modeling.model import ModelManager
 from vbridge.patient_selector.patient_selector import PatientSelector
 
-"""Main module."""
+"""This module contains the main classes for the VBridge framework."""
 
+# Suppress pandas FutureWarnings from featuretools operations to clean up output
+warnings.filterwarnings('ignore', category=FutureWarning, module='pandas')
+warnings.filterwarnings('ignore', category=FutureWarning, module='featuretools')
 
 class VBridge:
     """An interface class that ties the prediction and explanation modules together.
@@ -209,3 +216,44 @@ class VBridge:
             self._explainer = Explainer(self.entity_set, self.task, self._cutoff_times)
         # TODO - select cohort before calculate influence
         return self._explainer.occlusion_explain(feature, instance_id, flip)
+
+
+def train_model(task_name='mortality', evaluate=True, load_exist=False, save=False, verbose=False):
+    """Module-level function to train a model using the default MIMIC mortality task.
+    
+    This is a convenience function that creates a VBridge instance and runs the full workflow.
+    
+    Args:
+        task_name (str): The name of the task to run. Default is 'mortality'.
+        evaluate (bool): Whether to evaluate model performance and return results.
+        load_exist (bool): Whether to load existing cached data.
+        save (bool): Whether to save results to disk.
+        verbose (bool): Whether to print detailed progress information.
+    
+    Returns:
+        pd.DataFrame: Model evaluation results if evaluate=True, None otherwise.
+    """
+    from vbridge.dataset.mimic_demo.tasks.mortality import mimic_48h_in_admission_mortality_task
+    
+    # Create task and VBridge instance
+    task = mimic_48h_in_admission_mortality_task()
+    vbridge = VBridge(task)
+    
+    # Run the full workflow
+    if verbose:
+        print("Loading entity set...")
+    vbridge.load_entity_set(load_exist=load_exist, save=save, verbose=verbose)
+    
+    if verbose:
+        print("Generating features...")
+    vbridge.generate_features(load_exist=load_exist, save=save, verbose=verbose)
+    
+    if verbose:
+        print("Training model...")
+    results = vbridge.train_model(evaluate=evaluate, load_exist=load_exist, save=save)
+    
+    if verbose and evaluate:
+        print("\nModel Performance:")
+        print(results)
+    
+    return results

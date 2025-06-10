@@ -131,8 +131,18 @@ class FeatureValues(Resource):
             $ref: '#/components/responses/ErrorMessage'
         """
         try:
+            # Validate patient ID
+            if direct_id is None or direct_id == 'null' or direct_id == 'undefined':
+                return {'message': 'Invalid patient ID provided'}, 400
+                
             settings = current_app.settings
-            res = get_feature_value(settings['feature_matrix'], direct_id)
+            fm = settings['feature_matrix']
+            
+            # Check if patient exists in feature matrix
+            if direct_id not in fm.index:
+                return {'message': f'Patient {direct_id} not found'}, 404
+                
+            res = get_feature_value(fm, direct_id)
             res = jsonify(res)
         except Exception as e:
             LOGGER.exception(e)
